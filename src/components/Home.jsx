@@ -4,9 +4,6 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import {
   AccountBalanceQuery,
-  TokenCreateTransaction,
-  TokenSupplyType,
-  TokenType,
   PrivateKey,
   TokenAssociateTransaction,
   TokenDeleteTransaction,
@@ -14,13 +11,25 @@ import {
   TokenMintTransaction,
 } from "@hashgraph/sdk";
 import {
+  Network,
+  InitializationRequest,
+  CreateRequest,
+  ConnectRequest,
+  SupportedWallets,
+  TokenSupplyType,
+  StableCoin,
+  KYCRequest,
+  GetAccountBalanceRequest,
+  CashInRequest,
+  BigDecimal,
+  AssociateTokenRequest,
+} from "@hashgraph/stablecoin-npm-sdk";
+import {
   Close,
-  Create,
   CurrencyExchange,
   Delete,
   Link,
   Add,
-  MonetizationOn,
   Money,
   Send,
 } from "@mui/icons-material";
@@ -37,7 +46,6 @@ import {
 } from "@mui/material";
 import { Box } from "@mui/system";
 import MirrorNodeAPI from "../api/mirror-node-api";
-
 const style = {
   position: "absolute",
   top: "50%",
@@ -50,6 +58,23 @@ const style = {
   p: 4,
 };
 
+const mirrorNodeConfig = {
+  name: "Testnet Mirror Node",
+  network: "testnet",
+  baseUrl: "https://testnet.mirrornode.hedera.com/api/v1/",
+  apiKey: "",
+  headerName: "",
+  selected: true,
+};
+const RPCNodeConfig = {
+  name: "HashIO",
+  network: "testnet",
+  baseUrl: "https://testnet.hashio.io/api",
+  apiKey: "",
+  headerName: "",
+  selected: true,
+};
+
 const Home = (props) => {
   const mirrorNodeDelay = 5000;
   const [hbarBalance, setHbarBalance] = useState("0");
@@ -59,7 +84,6 @@ const Home = (props) => {
   const [selectedToken, setSelectedToken] = useState({});
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [mintModalOpen, setMintModalOpen] = useState(false);
   const [associateModalOpen, setAssociateModalOpen] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
@@ -78,11 +102,6 @@ const Home = (props) => {
   const accountNameRef = useRef();
   const accountIdRef = useRef();
   const accountPrivateKeyRef = useRef();
-
-  const tokenNameRef = useRef();
-  const tokenSymbolRef = useRef();
-  const decimalRef = useRef();
-  const totalSupplyRef = useRef();
 
   const tokenIdRef = useRef();
   const mintAmountRef = useRef();
@@ -114,7 +133,7 @@ const Home = (props) => {
       setAccountInfo(account);
     };
     fetchAccount();
-    setSigKey(PrivateKey.fromString(props.privateKey));
+    setSigKey(PrivateKey.fromStringECDSA(props.privateKey));
   }, [
     props.accountId,
     props.account,
@@ -129,7 +148,7 @@ const Home = (props) => {
   const addAccount = async () => {
     setBackdropOpen(true);
     try {
-      const privateKey = PrivateKey.fromString(
+      const privateKey = PrivateKey.fromStringECDSA(
         accountPrivateKeyRef.current?.value
       );
       const newAccount = {
@@ -157,6 +176,31 @@ const Home = (props) => {
       });
     }
     setBackdropOpen(false);
+  };
+
+  const deleteAccount = () => {
+    try {
+      const currentAccounts = JSON.parse(localStorage.getItem("accounts"));
+      const filteredAccounts = currentAccounts.filter(
+        (account) => account.accountId !== props.account.accountId
+      );
+      props.changeAccount(filteredAccounts[0]);
+      props.setAccounts(filteredAccounts);
+      localStorage.setItem("accounts", JSON.stringify(filteredAccounts));
+
+      setSnackbar({
+        message: "Deleted account successfully",
+        severity: "success",
+        open: true,
+      });
+    } catch (err) {
+      console.warn(err);
+      setSnackbar({
+        message: "Failed to delete account " + err.toString(),
+        severity: "error",
+        open: true,
+      });
+    }
   };
 
   const transferToken = async () => {
@@ -365,53 +409,6 @@ const Home = (props) => {
     setBackdropOpen(false);
   };
 
-  const createToken = async () => {
-    setBackdropOpen(true);
-    try {
-      const sigKey = PrivateKey.fromString(props.privateKey);
-
-      const tokenName = tokenNameRef.current?.value;
-      const tokenSymbol = tokenSymbolRef.current?.value;
-      const decimal = parseInt(decimalRef.current?.value);
-      const totalSupply = parseInt(totalSupplyRef.current?.value);
-
-      let tokenCreateTx = await new TokenCreateTransaction()
-        .setTokenName(tokenName)
-        .setTokenSymbol(tokenSymbol)
-        .setTokenType(TokenType.FungibleCommon)
-        .setDecimals(decimal)
-        .setInitialSupply(totalSupply)
-        .setTreasuryAccountId(props.accountId)
-        .setSupplyType(TokenSupplyType.Infinite)
-        .setSupplyKey(sigKey)
-        .setAdminKey(sigKey)
-        .freezeWith(props.client);
-      //SIGN WITH TREASURY KEY
-      let tokenCreateSign = await tokenCreateTx.sign(sigKey);
-      //SUBMIT THE TRANSACTION
-      let tokenCreateSubmit = await tokenCreateSign.execute(props.client);
-      //GET THE TRANSACTION RECEIPT
-      let tokenCreateRx = await tokenCreateSubmit.getReceipt(props.client);
-      let tokenId = tokenCreateRx.tokenId;
-      await delay(mirrorNodeDelay);
-      setSnackbar({
-        message: "Create token success, tokenID: " + tokenId,
-        severity: "success",
-        open: true,
-      });
-      setCreateModalOpen(false);
-      setRefreshCount(refreshCount + 1);
-    } catch (err) {
-      console.warn("Create token failed", err);
-      setSnackbar({
-        message: "Failed to create token " + err.toString(),
-        severity: "error",
-        open: true,
-      });
-    }
-    setBackdropOpen(false);
-  };
-
   return (
     <div>
       <Backdrop
@@ -442,8 +439,38 @@ const Home = (props) => {
       </Snackbar>
       <Typography gutterBottom variant="h5" component="div">
         <CurrencyExchange fontSize="small" />{" "}
-        <b style={{ marginLeft: "5px" }}>Standard Bank Common Monetary Area</b>
+        <b style={{ marginLeft: "5px" }}>Standard Bank Common Monetary Area</b>{" "}
+        <Button
+          variant="outlined"
+          component="label"
+          startIcon={<Add />}
+          size="small"
+          onClick={() => setAddAccountModalOpen(true)}
+        >
+          Add Account
+        </Button>{" "}
+        <Button
+          variant="outlined"
+          component="label"
+          startIcon={<Link />}
+          size="small"
+          onClick={() => setAssociateModalOpen(true)}
+        >
+          Associate Token
+        </Button>{" "}
+        <Button
+          variant="outlined"
+          component="label"
+          startIcon={<Delete />}
+          color="error"
+          size="small"
+          style={{ float: "right" }}
+          onClick={() => deleteAccount()}
+        >
+          Delete Account
+        </Button>{" "}
       </Typography>
+
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Card sx={{ minWidth: 275 }}>
@@ -485,34 +512,6 @@ const Home = (props) => {
               >
                 <b>Hbar:</b> {hbarBalance}
               </Typography>
-              <Button
-                variant="contained"
-                component="label"
-                startIcon={<MonetizationOn />}
-                color="secondary"
-                onClick={() => setCreateModalOpen(true)}
-              >
-                Create Token
-              </Button>{" "}
-              <Button
-                variant="contained"
-                component="label"
-                startIcon={<Link />}
-                color="secondary"
-                onClick={() => setAssociateModalOpen(true)}
-                ml={5}
-              >
-                Associate Token
-              </Button>{" "}
-              <Button
-                variant="contained"
-                component="label"
-                startIcon={<Add />}
-                color="secondary"
-                onClick={() => setAddAccountModalOpen(true)}
-              >
-                Add Account
-              </Button>{" "}
             </CardContent>
           </Card>
         </Grid>
@@ -525,80 +524,6 @@ const Home = (props) => {
         </Grid>
         {tokenList}
       </Grid>
-
-      <Modal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
-      >
-        <Box sx={style}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                id="TokenName"
-                name="TokenName"
-                label="Token Name"
-                fullWidth
-                variant="standard"
-                inputRef={tokenNameRef}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                id="TokenSymbol"
-                name="TokenSymbol"
-                label="Token Symbol"
-                fullWidth
-                variant="standard"
-                inputRef={tokenSymbolRef}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                id="Decimal"
-                name="Decimal"
-                label="Decimal"
-                fullWidth
-                variant="standard"
-                inputRef={decimalRef}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                id="TotalSupply"
-                name="TotalSupply"
-                label="Total supply"
-                fullWidth
-                variant="standard"
-                inputRef={totalSupplyRef}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                variant="contained"
-                component="label"
-                startIcon={<Create />}
-                color="secondary"
-                onClick={createToken}
-              >
-                Create
-              </Button>
-              <Button
-                variant="contained"
-                component="label"
-                startIcon={<Close />}
-                color="error"
-                style={{ float: "right" }}
-                onClick={() => setCreateModalOpen(false)}
-              >
-                Close
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-      </Modal>
-
       <Modal
         open={transferModalOpen}
         onClose={() => setTransferModalOpen(false)}
@@ -658,7 +583,6 @@ const Home = (props) => {
           </Grid>
         </Box>
       </Modal>
-
       <Modal
         open={associateModalOpen}
         onClose={() => setAssociateModalOpen(false)}
@@ -701,7 +625,6 @@ const Home = (props) => {
           </Grid>
         </Box>
       </Modal>
-
       <Modal
         open={addAccountModalOpen}
         onClose={() => setAddAccountModalOpen(false)}
@@ -767,7 +690,6 @@ const Home = (props) => {
           </Grid>
         </Box>
       </Modal>
-
       <Modal
         open={mintModalOpen}
         onClose={() => setMintModalOpen(false)}

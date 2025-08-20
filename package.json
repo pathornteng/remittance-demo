@@ -7,6 +7,7 @@
     "@emotion/styled": "^11.8.1",
     "@hashgraph/hethers": "^1.1.0",
     "@hashgraph/sdk": "^2.70.0",
+    "@hashgraph/stablecoin-npm-sdk": "^2.1.5",
     "@koa/cors": "^4.0.0",
     "@mui/icons-material": "^5.6.2",
     "@mui/material": "^5.6.2",
