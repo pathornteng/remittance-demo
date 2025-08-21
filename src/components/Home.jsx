@@ -18,6 +18,7 @@ import {
   Add,
   Money,
   Send,
+  AttachMoney,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -51,6 +52,7 @@ const Home = (props) => {
   const [accountInfo, setAccountInfo] = useState({});
   const [selectedToken, setSelectedToken] = useState({});
   const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [burnModalOpen, setBurnModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mintModalOpen, setMintModalOpen] = useState(false);
   const [associateModalOpen, setAssociateModalOpen] = useState(false);
@@ -66,6 +68,7 @@ const Home = (props) => {
 
   const TokenContractABI = [
     "function mint(address,int64) external returns (bool)",
+    "function burn(int64) external returns (bool)",
   ];
 
   const accountRef = useRef();
@@ -79,14 +82,14 @@ const Home = (props) => {
   const mintAmountRef = useRef();
 
   useEffect(() => {
-    console.log(process.env.REACT_APP_JSON_RPC_URL);
+    console.log("Home");
     setTokens([]);
     const fetchAccount = async () => {
+      console.log("Fetch Account");
       const accountBalance = await new AccountBalanceQuery()
         .setAccountId(props.account.accountId)
         .execute(props.client);
       setHbarBalance(accountBalance.hbars.toString());
-
       const resp = await props.api.getAccount(props.account.accountId);
       const account = resp.data;
       const tokens = account.balance.tokens;
@@ -174,6 +177,56 @@ const Home = (props) => {
         open: true,
       });
     }
+  };
+
+  const burnToken = async () => {
+    setBackdropOpen(true);
+    try {
+      const tokenContractAddress = await props.api.getTreasuryAddress(
+        selectedToken.token_id
+      );
+      const amount = parseInt(amountRef.current?.value);
+      const transaction = await new TransferTransaction()
+        .addTokenTransfer(
+          selectedToken.token_id,
+          props.account.accountId,
+          -amount
+        )
+        .addTokenTransfer(selectedToken.token_id, tokenContractAddress, amount)
+        .freezeWith(props.client);
+      const signTx = await transaction.sign(sigKey);
+      const txResponse = await signTx.execute(props.client);
+      await txResponse.getReceipt(props.client);
+      const provider = new ethers.JsonRpcProvider(
+        process.env.REACT_APP_JSON_RPC_URL
+      );
+      await delay(mirrorNodeDelay);
+      const wallet = new ethers.Wallet(
+        PrivateKey.fromStringECDSA(props.privateKey).toStringRaw(),
+        provider
+      );
+      const contract = new ethers.Contract(
+        tokenContractAddress,
+        TokenContractABI,
+        wallet
+      );
+      const tx = await contract.burn(amount);
+      console.log(`Tx sent: ${tx.hash}`);
+      const rcpt = await tx.wait();
+      console.log(`Confirmed in block: ${rcpt.blockNumber}`);
+      setBurnModalOpen(false);
+      setRefreshCount(refreshCount + 1);
+    } catch (err) {
+      console.warn(err);
+      setSnackbar({
+        message: "Failed to withdraw token " + err.toString(),
+        severity: "error",
+        open: true,
+      });
+      setBurnModalOpen(false);
+      setRefreshCount(refreshCount + 1);
+    }
+    setBackdropOpen(false);
   };
 
   const transferToken = async () => {
@@ -297,16 +350,11 @@ const Home = (props) => {
               </div>
               <div>
                 <b>Balance:</b>{" "}
-                {tokenInfo[token.token_id.toString()]?.balance?.toString()}
+                <h1>
+                  {tokenInfo[token.token_id.toString()]?.balance?.toString()}
+                </h1>
               </div>
-              <div>
-                <b>IsDeleted:</b>{" "}
-                {tokenInfo[token.token_id.toString()]?.deleted?.toString()}
-              </div>
-              <div>
-                <b>TokenType:</b>{" "}
-                {tokenInfo[token.token_id.toString()]?.type?.toString()}
-              </div>
+
               <hr />
               <div>
                 <Button
@@ -321,6 +369,18 @@ const Home = (props) => {
                 >
                   Transfer
                 </Button>{" "}
+                <Button
+                  variant="contained"
+                  component="label"
+                  startIcon={<AttachMoney />}
+                  color="secondary"
+                  onClick={() => {
+                    setBurnModalOpen(true);
+                    setSelectedToken(token);
+                  }}
+                >
+                  Withdraw
+                </Button>
                 {props.publicKey.includes(
                   tokenInfo[
                     token.token_id.toString()
@@ -552,6 +612,55 @@ const Home = (props) => {
                 color="error"
                 style={{ float: "right" }}
                 onClick={() => setTransferModalOpen(false)}
+              >
+                Close
+              </Button>
+            </Grid>
+          </Grid>
+        </Box>
+      </Modal>
+      <Modal
+        open={burnModalOpen}
+        onClose={() => setBurnModalOpen(false)}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        <Box sx={style}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <b>Token:</b> {selectedToken.token_id?.toString()} (
+              {tokenInfo[
+                selectedToken.token_id?.toString()
+              ]?.symbol?.toString()}
+              )
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                id="Amount"
+                name="Amount"
+                label="Amount"
+                fullWidth
+                variant="standard"
+                inputRef={amountRef}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Button
+                variant="contained"
+                component="label"
+                startIcon={<Send />}
+                color="secondary"
+                onClick={burnToken}
+              >
+                Withdraw
+              </Button>
+              <Button
+                variant="contained"
+                component="label"
+                startIcon={<Close />}
+                color="error"
+                style={{ float: "right" }}
+                onClick={() => setBurnModalOpen(false)}
               >
                 Close
               </Button>

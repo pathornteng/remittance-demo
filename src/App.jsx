@@ -14,7 +14,12 @@ import "./App.css";
 const App = () => {
   const [account, setAccount] = useState();
   const [accounts, setAccounts] = useState();
-  const client = Client.forTestnet();
+
+  const nodes = JSON.parse(process.env.REACT_APP_CONSENSUS_NODES);
+  const client = Client.forNetwork(nodes).setMirrorNetwork(
+    process.env.REACT_APP_MIRROR_NODE_URL
+  );
+
   const api = new MirrorNodeAPI();
 
   useEffect(() => {
@@ -22,6 +27,7 @@ const App = () => {
   }, [account, accounts, client]);
 
   useEffect(() => {
+    //const c = Client.forTestnet
     loadAccounts();
   }, []);
 
@@ -72,7 +78,6 @@ const App = () => {
                   fungi
                   element={
                     <Home
-                      accountId={account.accountId}
                       account={account}
                       accounts={accounts}
                       privateKey={account.privateKey}

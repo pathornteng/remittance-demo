@@ -44,7 +44,7 @@ const SignIn = (props) => {
       if (!account.accountId || result.status !== 200) {
         throw Error("Invalid account id");
       }
-      const privateKey = PrivateKey.fromString(account.privateKey);
+      const privateKey = PrivateKey.fromStringECDSA(account.privateKey);
       account.publicKey = privateKey.publicKey.toString();
       account.info = result.data;
 
