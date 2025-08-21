@@ -3,7 +3,7 @@ import axios from "axios";
 class MirrorNodeAPI {
   constructor() {
     this.req = axios.create({
-      baseURL: "https://testnet.mirrornode.hedera.com/",
+      baseURL: process.env.REACT_APP_MIRROR_NODE_URL,
     });
   }
 
@@ -65,6 +65,21 @@ class MirrorNodeAPI {
       return await this.req.get(
         `api/v1/transactions?account.id=${accountId}&limit=5`
       );
+    } catch (err) {
+      return {
+        status: 400,
+        err: err,
+      };
+    }
+  }
+
+  async getTreasuryAddress(tokenId) {
+    try {
+      const resp = await this.getToken(tokenId);
+      console.log(resp.data);
+      const treasuryId = resp.data.treasury_account_id;
+      const account = await this.getAccount(treasuryId);
+      return account.data.evm_address;
     } catch (err) {
       return {
         status: 400,

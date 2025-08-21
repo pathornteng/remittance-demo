@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Card from "@mui/material/Card";
+import { ethers } from "ethers";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import {
@@ -8,22 +9,7 @@ import {
   TokenAssociateTransaction,
   TokenDeleteTransaction,
   TransferTransaction,
-  TokenMintTransaction,
 } from "@hashgraph/sdk";
-import {
-  Network,
-  InitializationRequest,
-  CreateRequest,
-  ConnectRequest,
-  SupportedWallets,
-  TokenSupplyType,
-  StableCoin,
-  KYCRequest,
-  GetAccountBalanceRequest,
-  CashInRequest,
-  BigDecimal,
-  AssociateTokenRequest,
-} from "@hashgraph/stablecoin-npm-sdk";
 import {
   Close,
   CurrencyExchange,
@@ -45,7 +31,6 @@ import {
   TextField,
 } from "@mui/material";
 import { Box } from "@mui/system";
-import MirrorNodeAPI from "../api/mirror-node-api";
 const style = {
   position: "absolute",
   top: "50%",
@@ -56,23 +41,6 @@ const style = {
   border: "2px solid #000",
   boxShadow: 24,
   p: 4,
-};
-
-const mirrorNodeConfig = {
-  name: "Testnet Mirror Node",
-  network: "testnet",
-  baseUrl: "https://testnet.mirrornode.hedera.com/api/v1/",
-  apiKey: "",
-  headerName: "",
-  selected: true,
-};
-const RPCNodeConfig = {
-  name: "HashIO",
-  network: "testnet",
-  baseUrl: "https://testnet.hashio.io/api",
-  apiKey: "",
-  headerName: "",
-  selected: true,
 };
 
 const Home = (props) => {
@@ -96,6 +64,10 @@ const Home = (props) => {
     open: false,
   });
 
+  const TokenContractABI = [
+    "function mint(address,int64) external returns (bool)",
+  ];
+
   const accountRef = useRef();
   const amountRef = useRef();
 
@@ -107,14 +79,15 @@ const Home = (props) => {
   const mintAmountRef = useRef();
 
   useEffect(() => {
+    console.log(process.env.REACT_APP_JSON_RPC_URL);
     setTokens([]);
     const fetchAccount = async () => {
       const accountBalance = await new AccountBalanceQuery()
-        .setAccountId(props.accountId)
+        .setAccountId(props.account.accountId)
         .execute(props.client);
       setHbarBalance(accountBalance.hbars.toString());
-      const api = new MirrorNodeAPI();
-      const resp = await api.getAccount(props.accountId);
+
+      const resp = await props.api.getAccount(props.account.accountId);
       const account = resp.data;
       const tokens = account.balance.tokens;
       let tokenRelationships = [];
@@ -122,7 +95,7 @@ const Home = (props) => {
 
       setLoading(true);
       for (const token of tokens) {
-        let query = await api.getToken(token.token_id);
+        let query = await props.api.getToken(token.token_id);
         query.data.balance = token.balance;
         tokenInfo[token.token_id] = query.data;
         tokenRelationships.push(token);
@@ -135,11 +108,11 @@ const Home = (props) => {
     fetchAccount();
     setSigKey(PrivateKey.fromStringECDSA(props.privateKey));
   }, [
-    props.accountId,
     props.account,
     props.accounts,
     props.client,
     props.privateKey,
+    props.api,
     refreshCount,
   ]);
 
@@ -208,8 +181,15 @@ const Home = (props) => {
     try {
       const amount = parseInt(amountRef.current?.value);
       const receiverAccount = accountRef.current?.value;
+      if (tokenInfo[selectedToken.token_id].balance < amount) {
+        await mintToken(amount - tokenInfo[selectedToken.token_id].balance);
+      }
       const transaction = await new TransferTransaction()
-        .addTokenTransfer(selectedToken.token_id, props.accountId, -amount)
+        .addTokenTransfer(
+          selectedToken.token_id,
+          props.account.accountId,
+          -amount
+        )
         .addTokenTransfer(selectedToken.token_id, receiverAccount, amount)
         .freezeWith(props.client);
       const signTx = await transaction.sign(sigKey);
@@ -231,37 +211,32 @@ const Home = (props) => {
         open: true,
       });
       setTransferModalOpen(false);
+      setRefreshCount(refreshCount + 1);
     }
     setBackdropOpen(false);
   };
 
-  const mintToken = async () => {
-    setBackdropOpen(true);
-    try {
-      const tx = await new TokenMintTransaction()
-        .setTokenId(selectedToken.token_id)
-        .setAmount(parseInt(mintAmountRef.current?.value))
-        .freezeWith(props.client);
-      const signedTx = await tx.sign(sigKey);
-      const txResponse = await signedTx.execute(props.client);
-      await txResponse.getReceipt(props.client);
-      await delay(mirrorNodeDelay);
-      setSnackbar({
-        message: "Tokens minted successfully",
-        severity: "success",
-        open: true,
-      });
-      setMintModalOpen(false);
-      setRefreshCount(refreshCount + 1);
-    } catch (err) {
-      console.warn(err);
-      setSnackbar({
-        message: "Failed to mint token " + err.toString(),
-        severity: "error",
-        open: true,
-      });
-    }
-    setBackdropOpen(false);
+  const mintToken = async (amount) => {
+    const tokenContractAddress = await props.api.getTreasuryAddress(
+      selectedToken.token_id
+    );
+    const provider = new ethers.JsonRpcProvider(
+      process.env.REACT_APP_JSON_RPC_URL
+    );
+
+    const wallet = new ethers.Wallet(
+      PrivateKey.fromStringECDSA(props.privateKey).toStringRaw(),
+      provider
+    );
+    const contract = new ethers.Contract(
+      tokenContractAddress,
+      TokenContractABI,
+      wallet
+    );
+    const tx = await contract.mint(accountInfo.evm_address, amount);
+    console.log(`Tx sent: ${tx.hash}`);
+    const rcpt = await tx.wait();
+    console.log(`Confirmed in block: ${rcpt.blockNumber}`);
   };
 
   const deleteToken = async (token) => {
@@ -384,7 +359,7 @@ const Home = (props) => {
     setBackdropOpen(true);
     try {
       let associateTx = await new TokenAssociateTransaction()
-        .setAccountId(props.accountId)
+        .setAccountId(props.account.accountId)
         .setTokenIds([tokenIdRef.current?.value])
         .freezeWith(props.client)
         .sign(sigKey);
@@ -485,10 +460,11 @@ const Home = (props) => {
                   target="_blank"
                   rel="noreferrer"
                   href={
-                    "https://hashscan.io/testnet/account/" + props.accountId
+                    "https://hashscan.io/testnet/account/" +
+                    props.account.accountId
                   }
                 >
-                  {props.accountId}
+                  {props.account.accountId}
                 </a>
               </Typography>
               <Typography

@@ -80,6 +80,7 @@ const App = () => {
                       setAccounts={setAccounts}
                       changeAccount={changeAccount}
                       client={client}
+                      api={api}
                     />
                   }
                 />
