@@ -65,6 +65,7 @@ const Home = (props) => {
     severity: "success",
     open: false,
   });
+  const explorer_url = process.env.REACT_APP_EXPLORER;
 
   const TokenContractABI = [
     "function mint(address,int64) external returns (bool)",
@@ -328,40 +329,37 @@ const Home = (props) => {
           <Card sx={{ minWidth: 150 }}>
             <CardContent>
               <div>
-                <b>TokenID:</b>{" "}
-                <a
-                  target="_blank"
-                  rel="noreferrer"
-                  href={
-                    "https://hashscan.io/testnet/token/" +
-                    token.token_id.toString()
-                  }
-                >
-                  {token.token_id.toString()}
-                </a>
-              </div>
-              <div>
-                <b>Name:</b>{" "}
-                {tokenInfo[token.token_id.toString()]?.name?.toString()}
-              </div>
-              <div>
-                <b>Symbol:</b>{" "}
-                {tokenInfo[token.token_id.toString()]?.symbol?.toString()}
-              </div>
-              <div>
+                <b>
+                  {tokenInfo[token.token_id.toString()]?.name?.toString()}
+                  {" ( "}
+                  <a
+                    target="_blank"
+                    rel="noreferrer"
+                    href={
+                      explorer_url +
+                      "/testnet/token/" +
+                      token.token_id.toString()
+                    }
+                  >
+                    {token.token_id.toString()}
+                  </a>
+                  {" )"}
+                </b>{" "}
+                <br />
                 <b>Balance:</b>{" "}
-                <h1>
-                  {tokenInfo[token.token_id.toString()]?.balance?.toString()}
+                <h1 style={{ textAlign: "center" }}>
+                  {tokenInfo[
+                    token.token_id.toString()
+                  ]?.balance?.toLocaleString()}
                 </h1>
               </div>
 
-              <hr />
               <div>
                 <Button
-                  variant="contained"
+                  variant="text"
                   component="label"
+                  size="small"
                   startIcon={<Send />}
-                  color="secondary"
                   onClick={() => {
                     setTransferModalOpen(true);
                     setSelectedToken(token);
@@ -370,14 +368,15 @@ const Home = (props) => {
                   Transfer
                 </Button>{" "}
                 <Button
-                  variant="contained"
+                  variant="text"
                   component="label"
+                  size="small"
                   startIcon={<AttachMoney />}
-                  color="secondary"
                   onClick={() => {
                     setBurnModalOpen(true);
                     setSelectedToken(token);
                   }}
+                  style={{ float: "right" }}
                 >
                   Withdraw
                 </Button>
@@ -520,8 +519,7 @@ const Home = (props) => {
                   target="_blank"
                   rel="noreferrer"
                   href={
-                    "https://hashscan.io/testnet/account/" +
-                    props.account.accountId
+                    explorer_url + "/testnet/account/" + props.account.accountId
                   }
                 >
                   {props.account.accountId}
