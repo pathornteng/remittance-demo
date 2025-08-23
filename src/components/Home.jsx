@@ -7,7 +7,6 @@ import {
   AccountBalanceQuery,
   PrivateKey,
   TokenAssociateTransaction,
-  TokenDeleteTransaction,
   TransferTransaction,
 } from "@hashgraph/sdk";
 import {
@@ -26,10 +25,10 @@ import {
   Button,
   CircularProgress,
   Grid,
-  IconButton,
   Modal,
   Snackbar,
   TextField,
+  Autocomplete,
 } from "@mui/material";
 import { Box } from "@mui/system";
 const style = {
@@ -60,6 +59,7 @@ const Home = (props) => {
   const [backdropOpen, setBackdropOpen] = useState(false);
   const [addAccountModalOpen, setAddAccountModalOpen] = useState(false);
   const [sigKey, setSigKey] = useState();
+  const [receiverOption, setReceiverOption] = useState([]);
   const [snackbar, setSnackbar] = useState({
     message: "",
     severity: "success",
@@ -83,10 +83,8 @@ const Home = (props) => {
   const mintAmountRef = useRef();
 
   useEffect(() => {
-    console.log("Home");
     setTokens([]);
     const fetchAccount = async () => {
-      console.log("Fetch Account");
       const accountBalance = await new AccountBalanceQuery()
         .setAccountId(props.account.accountId)
         .execute(props.client);
@@ -109,6 +107,16 @@ const Home = (props) => {
       setLoading(false);
       setAccountInfo(account);
     };
+    let options = [];
+    props.accounts.forEach((acc) => {
+      if (acc.accountId !== props.account.accountId) {
+        options.push({
+          label: acc.name,
+          id: acc.accountId,
+        });
+      }
+    });
+    setReceiverOption(options);
     fetchAccount();
     setSigKey(PrivateKey.fromStringECDSA(props.privateKey));
   }, [
@@ -234,7 +242,11 @@ const Home = (props) => {
     setBackdropOpen(true);
     try {
       const amount = parseInt(amountRef.current?.value);
-      const receiverAccount = accountRef.current?.value;
+      let receiverAccount = accountRef.current?.value;
+      receiverOption.forEach((acc) => {
+        if (receiverAccount === acc.label) receiverAccount = acc.id;
+      });
+      console.log("Receiver", receiverAccount);
       if (tokenInfo[selectedToken.token_id].balance < amount) {
         await mintToken(amount - tokenInfo[selectedToken.token_id].balance);
       }
@@ -291,34 +303,6 @@ const Home = (props) => {
     console.log(`Tx sent: ${tx.hash}`);
     const rcpt = await tx.wait();
     console.log(`Confirmed in block: ${rcpt.blockNumber}`);
-  };
-
-  const deleteToken = async (token) => {
-    setBackdropOpen(true);
-    try {
-      const transaction = await new TokenDeleteTransaction()
-        .setTokenId(token.token_id.toString())
-        .freezeWith(props.client);
-      const signTx = await transaction.sign(sigKey);
-      const txResponse = await signTx.execute(props.client);
-      await txResponse.getReceipt(props.client);
-      await delay(mirrorNodeDelay);
-      setSnackbar({
-        message: "Tokens deleted successfully",
-        severity: "success",
-        open: true,
-      });
-      setRefreshCount(refreshCount + 1);
-    } catch (err) {
-      console.warn(err);
-      setSnackbar({
-        message: "Failed to delete the token " + err.toString(),
-        severity: "error",
-        open: true,
-      });
-    }
-
-    setBackdropOpen(false);
   };
 
   const tokenList = tokens
@@ -380,33 +364,6 @@ const Home = (props) => {
                 >
                   Withdraw
                 </Button>
-                {props.publicKey.includes(
-                  tokenInfo[
-                    token.token_id.toString()
-                  ]?.admin_key?.key?.toString()
-                ) && (
-                  <span>
-                    <Button
-                      variant="contained"
-                      component="label"
-                      startIcon={<Money />}
-                      color="secondary"
-                      onClick={() => {
-                        setSelectedToken(token);
-                        setMintModalOpen(true);
-                      }}
-                    >
-                      Mint
-                    </Button>{" "}
-                    <IconButton
-                      color="error"
-                      onClick={() => deleteToken(token)}
-                      style={{ float: "right" }}
-                    >
-                      <Delete />
-                    </IconButton>
-                  </span>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -574,13 +531,20 @@ const Home = (props) => {
               )
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                id="AccountID"
-                name="AccountID"
-                label="Reciever's AccountID"
-                fullWidth
-                variant="standard"
-                inputRef={accountRef}
+              <Autocomplete
+                options={receiverOption}
+                renderInput={(options) => (
+                  <TextField
+                    {...options}
+                    id="AccountID"
+                    name="AccountID"
+                    label="Recipient"
+                    value={options.accountId}
+                    fullWidth
+                    variant="standard"
+                    inputRef={accountRef}
+                  />
+                )}
               />
             </Grid>
             <Grid item xs={12}>
