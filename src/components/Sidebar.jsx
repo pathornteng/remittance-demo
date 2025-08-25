@@ -32,11 +32,15 @@ const Sidebar = (props) => {
                     <a
                       target="_blank"
                       rel="noopener noreferrer"
-                      href={`https://hashscan.io/testnet/transaction/${tx.consensus_timestamp}`}
+                      href={
+                        process.env.REACT_APP_EXPLORER +
+                        `/transaction/${tx.consensus_timestamp}`
+                      }
                     >
                       {tx.transaction_id}
                     </a>
                   </Box>
+                  {atob(tx.memo_base64)}
                 </CardContent>
               </CardActionArea>
             </Card>

@@ -15,9 +15,10 @@ import {
   Delete,
   Link,
   Add,
-  Money,
+  Savings,
   Send,
   AttachMoney,
+  Money,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -53,13 +54,14 @@ const Home = (props) => {
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [burnModalOpen, setBurnModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [mintModalOpen, setMintModalOpen] = useState(false);
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [associateModalOpen, setAssociateModalOpen] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
   const [backdropOpen, setBackdropOpen] = useState(false);
   const [addAccountModalOpen, setAddAccountModalOpen] = useState(false);
   const [sigKey, setSigKey] = useState();
   const [receiverOption, setReceiverOption] = useState([]);
+  const [calculatedAmount, setCalculatedAmount] = useState(0);
   const [snackbar, setSnackbar] = useState({
     message: "",
     severity: "success",
@@ -78,9 +80,12 @@ const Home = (props) => {
   const accountNameRef = useRef();
   const accountIdRef = useRef();
   const accountPrivateKeyRef = useRef();
+  const localCurrencyRef = useRef();
+  const fxRateRef = useRef();
 
   const tokenIdRef = useRef();
-  const mintAmountRef = useRef();
+  const depositAmountRef = useRef();
+  const transferMemoRef = useRef();
 
   useEffect(() => {
     setTokens([]);
@@ -141,6 +146,8 @@ const Home = (props) => {
         accountId: accountIdRef.current?.value,
         privateKey: privateKey.toString(),
         publicKey: privateKey.publicKey.toString(),
+        localCurrency: localCurrencyRef.current?.value,
+        fxRate: fxRateRef.current?.value,
       };
       const accountList = [...props.accounts, newAccount];
       props.setAccounts(accountList);
@@ -156,6 +163,31 @@ const Home = (props) => {
       console.warn(err);
       setSnackbar({
         message: "Creating new account failed " + err.toString(),
+        severity: "error",
+        open: true,
+      });
+    }
+    setBackdropOpen(false);
+  };
+
+  const depositToken = async () => {
+    setBackdropOpen(true);
+    try {
+      const amount = parseInt(
+        depositAmountRef.current?.value * props.account.fxRate
+      );
+      await mintToken(amount);
+      setSnackbar({
+        message: "Tokens minted successfully",
+        severity: "success",
+        open: true,
+      });
+      setDepositModalOpen(false);
+      setRefreshCount(refreshCount + 1);
+    } catch (err) {
+      console.warn(err);
+      setSnackbar({
+        message: "Failed to mint token " + err.toString(),
         severity: "error",
         open: true,
       });
@@ -194,7 +226,7 @@ const Home = (props) => {
       const tokenContractAddress = await props.api.getTreasuryAddress(
         selectedToken.token_id
       );
-      const amount = parseInt(amountRef.current?.value);
+      const amount = parseInt(amountRef.current?.value * props.account.fxRate);
       const transaction = await new TransferTransaction()
         .addTokenTransfer(
           selectedToken.token_id,
@@ -246,10 +278,7 @@ const Home = (props) => {
       receiverOption.forEach((acc) => {
         if (receiverAccount === acc.label) receiverAccount = acc.id;
       });
-      console.log("Receiver", receiverAccount);
-      if (tokenInfo[selectedToken.token_id].balance < amount) {
-        await mintToken(amount - tokenInfo[selectedToken.token_id].balance);
-      }
+
       const transaction = await new TransferTransaction()
         .addTokenTransfer(
           selectedToken.token_id,
@@ -257,6 +286,7 @@ const Home = (props) => {
           -amount
         )
         .addTokenTransfer(selectedToken.token_id, receiverAccount, amount)
+        .setTransactionMemo(transferMemoRef.current?.value)
         .freezeWith(props.client);
       const signTx = await transaction.sign(sigKey);
       const txResponse = await signTx.execute(props.client);
@@ -283,9 +313,11 @@ const Home = (props) => {
   };
 
   const mintToken = async (amount) => {
+    console.log("MintToken");
     const tokenContractAddress = await props.api.getTreasuryAddress(
       selectedToken.token_id
     );
+    console.log("TokenContractAddress", tokenContractAddress);
     const provider = new ethers.JsonRpcProvider(
       process.env.REACT_APP_JSON_RPC_URL
     );
@@ -299,7 +331,10 @@ const Home = (props) => {
       TokenContractABI,
       wallet
     );
-    const tx = await contract.mint(accountInfo.evm_address, amount);
+    const tx = await contract.mint(accountInfo.evm_address, amount, {
+      gasPrice: 710000000000,
+      gasLimit: 2000000,
+    });
     console.log(`Tx sent: ${tx.hash}`);
     const rcpt = await tx.wait();
     console.log(`Confirmed in block: ${rcpt.blockNumber}`);
@@ -319,19 +354,28 @@ const Home = (props) => {
                   <a
                     target="_blank"
                     rel="noreferrer"
-                    href={
-                      explorer_url +
-                      "/testnet/token/" +
-                      token.token_id.toString()
-                    }
+                    href={explorer_url + "/token/" + token.token_id.toString()}
                   >
                     {token.token_id.toString()}
                   </a>
                   {" )"}
                 </b>{" "}
+                <Button
+                  variant="text"
+                  component="label"
+                  size="small"
+                  startIcon={<Send />}
+                  onClick={() => {
+                    setTransferModalOpen(true);
+                    setSelectedToken(token);
+                  }}
+                  style={{ float: "right" }}
+                >
+                  Transfer
+                </Button>{" "}
                 <br />
                 <b>Balance:</b>{" "}
-                <h1 style={{ textAlign: "center" }}>
+                <h1 style={{ textAlign: "center", fontSize: "37px" }}>
                   {tokenInfo[
                     token.token_id.toString()
                   ]?.balance?.toLocaleString()}
@@ -343,13 +387,13 @@ const Home = (props) => {
                   variant="text"
                   component="label"
                   size="small"
-                  startIcon={<Send />}
+                  startIcon={<Savings />}
                   onClick={() => {
-                    setTransferModalOpen(true);
+                    setDepositModalOpen(true);
                     setSelectedToken(token);
                   }}
                 >
-                  Transfer
+                  Deposit
                 </Button>{" "}
                 <Button
                   variant="text"
@@ -475,9 +519,7 @@ const Home = (props) => {
                 <a
                   target="_blank"
                   rel="noreferrer"
-                  href={
-                    explorer_url + "/testnet/account/" + props.account.accountId
-                  }
+                  href={explorer_url + "/account/" + props.account.accountId}
                 >
                   {props.account.accountId}
                 </a>
@@ -487,14 +529,14 @@ const Home = (props) => {
                 color="text.secondary"
                 gutterBottom
               >
-                <b>Public Key:</b> {props.publicKey}
+                <b>Local Currency:</b> {props.account.localCurrency}
               </Typography>
               <Typography
                 sx={{ fontSize: 16 }}
                 color="text.secondary"
                 gutterBottom
               >
-                <b>EVM address:</b> {accountInfo.evm_address}
+                <b>Fx Rate:</b> {props.account.fxRate}
               </Typography>
               <Typography
                 sx={{ fontSize: 16 }}
@@ -538,13 +580,23 @@ const Home = (props) => {
                     {...options}
                     id="AccountID"
                     name="AccountID"
-                    label="Recipient"
+                    label="Recipient Bank"
                     value={options.accountId}
                     fullWidth
                     variant="standard"
                     inputRef={accountRef}
                   />
                 )}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                id="RecipientAccount"
+                name="RecipientAccount"
+                label="Recipient Account"
+                fullWidth
+                variant="standard"
+                inputRef={transferMemoRef}
               />
             </Grid>
             <Grid item xs={12}>
@@ -600,11 +652,15 @@ const Home = (props) => {
               <TextField
                 id="Amount"
                 name="Amount"
-                label="Amount"
+                label="Fiat amount to be withdrawn"
                 fullWidth
                 variant="standard"
                 inputRef={amountRef}
+                onChange={(e) =>
+                  setCalculatedAmount(e.target.value * props.account.fxRate)
+                }
               />
+              {"Token amount to be burned: " + calculatedAmount}
             </Grid>
             <Grid item xs={12}>
               <Button
@@ -710,6 +766,26 @@ const Home = (props) => {
                 inputRef={accountNameRef}
               />
             </Grid>
+            <Grid item xs={12}>
+              <TextField
+                id="LocalCurrency"
+                name="LocalCurrency"
+                label="Local Currency"
+                fullWidth
+                variant="standard"
+                inputRef={localCurrencyRef}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                id="FX Rate"
+                name="FX Rate"
+                label="FxRate"
+                fullWidth
+                variant="standard"
+                inputRef={fxRateRef}
+              />
+            </Grid>
 
             <Grid item xs={12}>
               <Button
@@ -737,9 +813,10 @@ const Home = (props) => {
           </Grid>
         </Box>
       </Modal>
+
       <Modal
-        open={mintModalOpen}
-        onClose={() => setMintModalOpen(false)}
+        open={depositModalOpen}
+        onClose={() => setDepositModalOpen(false)}
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
@@ -747,23 +824,28 @@ const Home = (props) => {
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <TextField
-                id="MintAmount"
+                id="DepositAmount"
                 name="MintAmount"
-                label="Token amount to be minted"
+                label="Fiat amount to be deposited"
                 fullWidth
                 variant="standard"
-                inputRef={mintAmountRef}
+                onChange={(e) =>
+                  setCalculatedAmount(e.target.value * props.account.fxRate)
+                }
+                inputRef={depositAmountRef}
               />
+              {"Token to be minted: " + calculatedAmount}
             </Grid>
+
             <Grid item xs={12}>
               <Button
                 variant="contained"
                 component="label"
                 startIcon={<Money />}
                 color="secondary"
-                onClick={mintToken}
+                onClick={depositToken}
               >
-                Mint
+                Deposit
               </Button>
               <Button
                 variant="contained"
@@ -771,7 +853,7 @@ const Home = (props) => {
                 startIcon={<Close />}
                 color="error"
                 style={{ float: "right" }}
-                onClick={() => setMintModalOpen(false)}
+                onClick={() => setDepositModalOpen(false)}
               >
                 Cancel
               </Button>
