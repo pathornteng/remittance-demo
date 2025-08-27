@@ -226,7 +226,7 @@ const Home = (props) => {
       const tokenContractAddress = await props.api.getTreasuryAddress(
         selectedToken.token_id
       );
-      const amount = parseInt(amountRef.current?.value * props.account.fxRate);
+      const amount = parseInt(amountRef.current?.value);
       const transaction = await new TransferTransaction()
         .addTokenTransfer(
           selectedToken.token_id,
@@ -251,7 +251,10 @@ const Home = (props) => {
         TokenContractABI,
         wallet
       );
-      const tx = await contract.burn(amount);
+      const tx = await contract.burn(amount, {
+        gasPrice: 710000000000,
+        gasLimit: 1000000,
+      });
       console.log(`Tx sent: ${tx.hash}`);
       const rcpt = await tx.wait();
       console.log(`Confirmed in block: ${rcpt.blockNumber}`);
@@ -333,7 +336,7 @@ const Home = (props) => {
     );
     const tx = await contract.mint(accountInfo.evm_address, amount, {
       gasPrice: 710000000000,
-      gasLimit: 2000000,
+      gasLimit: 1000000,
     });
     console.log(`Tx sent: ${tx.hash}`);
     const rcpt = await tx.wait();
@@ -344,7 +347,7 @@ const Home = (props) => {
     .filter((token) => tokenInfo[token.token_id].type === "FUNGIBLE_COMMON")
     .map((token) => {
       return (
-        <Grid item xs={6} key={token.token_id.toString()}>
+        <Grid item xs={12} key={token.token_id.toString()}>
           <Card sx={{ minWidth: 150 }}>
             <CardContent>
               <div>
@@ -365,6 +368,7 @@ const Home = (props) => {
                   component="label"
                   size="small"
                   startIcon={<Send />}
+                  color="info"
                   onClick={() => {
                     setTransferModalOpen(true);
                     setSelectedToken(token);
@@ -375,7 +379,7 @@ const Home = (props) => {
                 </Button>{" "}
                 <br />
                 <b>Balance:</b>{" "}
-                <h1 style={{ textAlign: "center", fontSize: "37px" }}>
+                <h1 style={{ textAlign: "center", fontSize: "50px" }}>
                   {tokenInfo[
                     token.token_id.toString()
                   ]?.balance?.toLocaleString()}
@@ -387,6 +391,7 @@ const Home = (props) => {
                   variant="text"
                   component="label"
                   size="small"
+                  color="success"
                   startIcon={<Savings />}
                   onClick={() => {
                     setDepositModalOpen(true);
@@ -400,6 +405,7 @@ const Home = (props) => {
                   component="label"
                   size="small"
                   startIcon={<AttachMoney />}
+                  color="error"
                   onClick={() => {
                     setBurnModalOpen(true);
                     setSelectedToken(token);
@@ -523,6 +529,7 @@ const Home = (props) => {
                 >
                   {props.account.accountId}
                 </a>
+                <b style={{ float: "right" }}>{hbarBalance}</b>
               </Typography>
               <Typography
                 sx={{ fontSize: 16 }}
@@ -542,9 +549,7 @@ const Home = (props) => {
                 sx={{ fontSize: 16 }}
                 color="text.secondary"
                 gutterBottom
-              >
-                <b>Hbar:</b> {hbarBalance}
-              </Typography>
+              ></Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -652,15 +657,15 @@ const Home = (props) => {
               <TextField
                 id="Amount"
                 name="Amount"
-                label="Fiat amount to be withdrawn"
+                label="Token amount to be burned"
                 fullWidth
                 variant="standard"
                 inputRef={amountRef}
                 onChange={(e) =>
-                  setCalculatedAmount(e.target.value * props.account.fxRate)
+                  setCalculatedAmount(e.target.value / props.account.fxRate)
                 }
               />
-              {"Token amount to be burned: " + calculatedAmount}
+              {"Fiat amount to be withdrawn: " + calculatedAmount.toFixed(2)}
             </Grid>
             <Grid item xs={12}>
               <Button

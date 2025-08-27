@@ -87,25 +87,25 @@ const Navbar = (props) => {
       if (queryArray.length === 1) {
         resp = await props.api.getAccount(query);
         if (resp.status === 200) {
-          openLink(`https://hashscan.io/testnet/account/${query}`);
+          openLink(process.env.REACT_APP_EXPLORER + `/account/${query}`);
           return;
         }
 
         resp = await props.api.getToken(query);
         if (resp.status === 200) {
-          openLink(`https://hashscan.io/testnet/token/${query}`);
+          openLink(process.env.REACT_APP_EXPLORER + `/token/${query}`);
           return;
         }
 
         resp = await props.api.getTopic(query);
         if (resp.status === 200) {
-          openLink(`https://hashscan.io/testnet/topic/${query}`);
+          openLink(process.env.REACT_APP_EXPLORER + `/topic/${query}`);
           return;
         }
 
         resp = await props.api.getContract(query);
         if (resp.status === 200) {
-          openLink(`https://hashscan.io/testnet/contract/${query}`);
+          openLink(process.env.REACT_APP_EXPLORER + `/contract/${query}`);
           return;
         }
       }
@@ -117,7 +117,7 @@ const Navbar = (props) => {
 
       resp = await props.api.getTransaction(query);
       if (resp.status === 200) {
-        openLink(`https://hashscan.io/testnet/transaction/${query}`);
+        openLink(process.env.REACT_APP_EXPLORER + `/transaction/${query}`);
         return;
       }
     }

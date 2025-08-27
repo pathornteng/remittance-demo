@@ -12,10 +12,10 @@ export const theme = createTheme({
       main: "#5D6DD8",
     },
     error: {
-      main: "#FAA0A0",
+      main: "#f93939ff",
     },
     success: {
-      main: "#a0e7a0",
+      main: "#4a9e4aff",
     },
   },
 });
