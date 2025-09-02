@@ -72,7 +72,7 @@ const SignIn = (props) => {
           src={process.env.PUBLIC_URL + "/sb_logo.png"}
         />
         <Typography component="h1" variant="h6">
-          Standard Bank - Common Monetary Area
+          International Remittance PoC
         </Typography>
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
           {errorMsg && <Alert severity="error">{errorMsg}</Alert>}

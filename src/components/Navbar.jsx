@@ -148,7 +148,7 @@ const Navbar = (props) => {
           <img
             style={{ height: "64px" }}
             alt="Logo"
-            src={process.env.PUBLIC_URL + "/sb_logo.png"}
+            src={process.env.PUBLIC_URL + "/favicon.png"}
           />
           <Typography
             variant="h6"
@@ -161,7 +161,7 @@ const Navbar = (props) => {
               style={{ color: "inherit", textDecoration: "inherit" }}
               to="/"
             >
-              Standard Bank PoC
+              International Remittance PoC
             </NavLink>
           </Typography>
           <b>Account ID:</b>{" "}

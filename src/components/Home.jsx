@@ -398,7 +398,7 @@ const Home = (props) => {
                     setSelectedToken(token);
                   }}
                 >
-                  Deposit
+                  Debit
                 </Button>{" "}
                 <Button
                   variant="text"
@@ -480,7 +480,7 @@ const Home = (props) => {
       </Snackbar>
       <Typography gutterBottom variant="h5" component="div">
         <CurrencyExchange fontSize="small" />{" "}
-        <b style={{ marginLeft: "5px" }}>Standard Bank Common Monetary Area</b>{" "}
+        <b style={{ marginLeft: "5px" }}>International Remittance</b>{" "}
         <Button
           variant="outlined"
           component="label"
@@ -529,6 +529,7 @@ const Home = (props) => {
                 >
                   {props.account.accountId}
                 </a>
+                {"(Treasury Account)"}
                 <b style={{ float: "right" }}>{hbarBalance}</b>
               </Typography>
               <Typography
@@ -608,7 +609,7 @@ const Home = (props) => {
               <TextField
                 id="Amount"
                 name="Amount"
-                label="Amount"
+                label="Token Amount"
                 fullWidth
                 variant="standard"
                 inputRef={amountRef}
@@ -831,7 +832,7 @@ const Home = (props) => {
               <TextField
                 id="DepositAmount"
                 name="MintAmount"
-                label="Fiat amount to be deposited"
+                label="Fiat amount to be debited"
                 fullWidth
                 variant="standard"
                 onChange={(e) =>
@@ -850,7 +851,7 @@ const Home = (props) => {
                 color="secondary"
                 onClick={depositToken}
               >
-                Deposit
+                Debit
               </Button>
               <Button
                 variant="contained"
