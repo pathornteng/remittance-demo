@@ -529,7 +529,6 @@ const Home = (props) => {
                 >
                   {props.account.accountId}
                 </a>
-                {"(Treasury Account)"}
                 <b style={{ float: "right" }}>{hbarBalance}</b>
               </Typography>
               <Typography
@@ -586,7 +585,7 @@ const Home = (props) => {
                     {...options}
                     id="AccountID"
                     name="AccountID"
-                    label="Recipient Bank"
+                    label="Recipient"
                     value={options.accountId}
                     fullWidth
                     variant="standard"
@@ -599,7 +598,7 @@ const Home = (props) => {
               <TextField
                 id="RecipientAccount"
                 name="RecipientAccount"
-                label="Recipient Account"
+                label="Note"
                 fullWidth
                 variant="standard"
                 inputRef={transferMemoRef}

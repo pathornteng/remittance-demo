@@ -1,6 +1,7 @@
 # Project summary
 
-WIP
+This demo can be used to demonstrate the money transfer using a token created by Stablecoin Studio.
+Note: It supports ECDSA accounts only.
 
 ## Prerequisite
 
@@ -11,8 +12,8 @@ node
 ## Install
 
 ```bash
-git clone git@github.com:pathornteng/sb-poc-ui.git
-cd sb-poc-ui
+git clone git@github.com:pathornteng/remittance-demo.git
+cd remittance-demo
 npm install
 ```
 

@@ -38,6 +38,8 @@ const SignIn = (props) => {
         accountId: data.get("accountId"),
         privateKey: data.get("privateKey"),
         name: data.get("accountName"),
+        localCurrency: data.get("localCurrency"),
+        fxRate: data.get("fxRate"),
       };
 
       const result = await props.api.getAccount(account.accountId);
@@ -69,7 +71,7 @@ const SignIn = (props) => {
         <img
           alt="hedera logo"
           width="150"
-          src={process.env.PUBLIC_URL + "/sb_logo.png"}
+          src={process.env.PUBLIC_URL + "/favicon.png"}
         />
         <Typography component="h1" variant="h6">
           International Remittance PoC
@@ -100,6 +102,20 @@ const SignIn = (props) => {
             name="accountName"
             label="Account Name"
             id="accountName"
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            name="localCurrency"
+            label="Local Currency"
+            id="localCurrency"
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            name="fxRate"
+            label="Fx Rate"
+            id="fxRate"
           />
           <Button
             type="submit"
